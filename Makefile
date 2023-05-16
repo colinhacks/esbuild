@@ -20,7 +20,7 @@ test-all:
 	@$(MAKE) --no-print-directory -j6 test-common test-deno ts-type-tests test-wasm-node test-wasm-browser lib-typecheck test-yarnpnp
 
 check-go-version:
-	@go version | grep ' go1\.20\.4 ' || (echo 'Please install Go version 1.20.4' && false)
+	@go version | grep ' go1\.20\.3 ' || (echo 'Please install Go version 1.20.3' && false)
 
 # Note: Don't add "-race" here by default. The Go race detector is currently
 # only supported on the following configurations:
@@ -862,7 +862,7 @@ bench/three: | github/three
 	for i in 1 2 3 4 5 6 7 8 9 10; do echo "import * as copy$$i from './copy$$i/Three.js'; export {copy$$i}" >> bench/three/src/entry.js; done
 	echo 'Line count:' && find bench/three/src -name '*.js' | xargs wc -l | tail -n 1
 
-bench-three: bench-three-esbuild bench-three-rollup bench-three-webpack5 bench-three-parcel2 bench-three-bun
+bench-three: bench-three-esbuild bench-three-rollup bench-three-webpack5 bench-three-parcel2 bench-three-bun bench-three-rspack
 
 bench-three-bun: bench/three
 	rm -fr bench/three/bun
@@ -899,6 +899,28 @@ bench-three-webpack5: | require/webpack5/node_modules bench/three
 	ln -s ../../../../bench/three/webpack5 require/webpack5/bench/three/out
 	cd require/webpack5/bench/three && time -p ../../node_modules/.bin/webpack --entry ./src/entry.js $(THREE_WEBPACK5_FLAGS) -o out/entry.webpack5.js
 	du -h bench/three/webpack5/entry.webpack5.js*
+
+RSPACK_THREE_CONFIG += export default {
+RSPACK_THREE_CONFIG +=   'entry': './src/entry.js',
+RSPACK_THREE_CONFIG +=   'mode': 'production',
+RSPACK_THREE_CONFIG +=   'target': 'web',
+RSPACK_THREE_CONFIG +=   'devtool': 'source-map',
+RSPACK_THREE_CONFIG +=   'output': { 'filename': 'entry.rspack.js', path: './out' },
+RSPACK_THREE_CONFIG += };
+
+bench-three-rspack: | bench/three
+	rm -fr require/rspack bench/three/rspack
+	mkdir -p require/rspack/bench/three bench/three/rspack
+	echo '{ "name": "rspack-bench", "type": "module", "version": "1.0.0", "dependencies": {"@rspack/cli": "0.1.11"} }' > require/rspack/package.json
+	rm -rf require/rspack/bench/three/out
+	cd require/rspack && npm i
+	ln -s ../../../../bench/three/src require/rspack/bench/three/src
+	ln -s ../../../../bench/three/rspack require/rspack/bench/three/out
+	echo "$(RSPACK_THREE_CONFIG)" > require/rspack/bench/three/rspack.config.js
+	echo '{"type": "module"}' > require/rspack/bench/three/src/package.json # necessary or it will throw an error on Linux
+	cd require/rspack/bench/three && time -p ../../node_modules/.bin/rspack build --config=rspack.config.js
+	rm require/rspack/bench/three/src/package.json 
+	du -h bench/three/rspack/entry.rspack.js*
 
 bench-three-parcel2: | require/parcel2/node_modules bench/three
 	rm -fr require/parcel2/bench/three bench/three/parcel2
