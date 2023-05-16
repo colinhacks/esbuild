@@ -862,7 +862,13 @@ bench/three: | github/three
 	for i in 1 2 3 4 5 6 7 8 9 10; do echo "import * as copy$$i from './copy$$i/Three.js'; export {copy$$i}" >> bench/three/src/entry.js; done
 	echo 'Line count:' && find bench/three/src -name '*.js' | xargs wc -l | tail -n 1
 
-bench-three: bench-three-esbuild bench-three-rollup bench-three-webpack5 bench-three-parcel2
+bench-three: bench-three-esbuild bench-three-rollup bench-three-webpack5 bench-three-parcel2 bench-three-bun
+
+bench-three-bun: bench/three
+	rm -fr bench/three/bun
+	time -p bun build --sourcemap=external --minify bench/three/src/entry.js --outfile=bench/three/bun/entry.bun.js --outdir=bench/three/bun --entry-naming=[name].bun.[ext]
+	du -h bench/three/bun/entry.bun.js*
+	shasum bench/three/bun/entry.bun.js*
 
 bench-three-esbuild: esbuild | bench/three
 	rm -fr bench/three/esbuild
